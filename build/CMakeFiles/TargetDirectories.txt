@@ -1,0 +1,13 @@
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/ftpclient.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/edit_cache.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/rebuild_cache.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/list_install_components.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/install.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/install/local.dir
+C:/Users/54652/Desktop/FTPClient/build/CMakeFiles/install/strip.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/edit_cache.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/rebuild_cache.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/list_install_components.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/install.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/install/local.dir
+C:/Users/54652/Desktop/FTPClient/build/external/CMakeFiles/install/strip.dir
