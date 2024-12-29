@@ -392,7 +392,124 @@ SOCKET FTPClient::createDataConnection() {
         }
     } else {
         // Active mode implementation...
-        // [完善主动模式的代码]
+        // ----------------------
+        //   主动模式实现示例
+        // ----------------------
+
+        // 1) 创建一个监听 socket
+        SOCKET dataListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (dataListenSocket == INVALID_SOCKET) {
+            lastError = "Failed to create data listen socket";
+            return INVALID_SOCKET;
+        }
+
+        // 设置套接字可重用、绑定到任意地址和随机端口
+        int opt = 1;
+        setsockopt(dataListenSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+
+        sockaddr_in listenAddr;
+        memset(&listenAddr, 0, sizeof(listenAddr));
+        listenAddr.sin_family = AF_INET;
+        // INADDR_ANY 表示绑定到本机所有网卡地址，可根据需要改为具体IP
+        listenAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        listenAddr.sin_port = 0; // 0 表示让系统自动分配一个空闲端口
+
+        if (bind(dataListenSocket, (sockaddr*)&listenAddr, sizeof(listenAddr)) == SOCKET_ERROR) {
+            lastError = "Failed to bind for active mode";
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+
+        // 开始监听
+        if (listen(dataListenSocket, 1) == SOCKET_ERROR) {
+            lastError = "Failed to listen for active mode";
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+
+        // 2) 通过 getsockname 获取实际绑定的端口
+        sockaddr_in localAddr;
+        socklen_t addrLen = sizeof(localAddr);
+        if (getsockname(dataListenSocket, (sockaddr*)&localAddr, &addrLen) != 0) {
+            lastError = "getsockname failed";
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+        unsigned short localPort = ntohs(localAddr.sin_port);
+
+        // 3) 获取本机 IP 地址
+        // 简单做法：从控制连接 socket 上获取本机IP
+        // （对于 NAT 或多网卡场景，需要更灵活的机制）
+        sockaddr_in ctrlAddr;
+        socklen_t ctrlLen = sizeof(ctrlAddr);
+        if (getsockname(controlSocket, (sockaddr*)&ctrlAddr, &ctrlLen) != 0) {
+            lastError = "Failed to get local IP from control socket";
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+        unsigned long ip = ntohl(ctrlAddr.sin_addr.s_addr); 
+        // 分别取 h1,h2,h3,h4
+        unsigned char h1 = (ip >> 24) & 0xFF;
+        unsigned char h2 = (ip >> 16) & 0xFF;
+        unsigned char h3 = (ip >>  8) & 0xFF;
+        unsigned char h4 =  ip        & 0xFF;
+
+        // 分别取 p1,p2
+        unsigned char p1 = (localPort >> 8) & 0xFF;
+        unsigned char p2 =  localPort       & 0xFF;
+
+        // 4) 发送 PORT 命令给服务器
+        //    格式：PORT h1,h2,h3,h4,p1,p2
+        std::ostringstream portCmd;
+        portCmd << "PORT " 
+                << (int)h1 << "," << (int)h2 << "," 
+                << (int)h3 << "," << (int)h4 << "," 
+                << (int)p1 << "," << (int)p2;
+
+        if (!sendCommand(portCmd.str())) {
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+
+        FTPResponse resp = getResponse();
+        if (resp.code != 200) {
+            lastError = "Failed to set active mode: " + resp.msg;
+            closesocket(dataListenSocket);
+            return INVALID_SOCKET;
+        }
+
+        // 5) 等待服务器连进来 (accept)
+        sockaddr_in clientAddr;
+        socklen_t clientLen = sizeof(clientAddr);
+        dataSocket = accept(dataListenSocket, (sockaddr*)&clientAddr, &clientLen);
+        // 无论是否 accept 成功，都可以关闭监听 socket
+        closesocket(dataListenSocket);
+
+        if (dataSocket == INVALID_SOCKET) {
+            lastError = "Failed to accept data connection from server";
+            return INVALID_SOCKET;
+        }
+
+        // 6) 如果是 TLS 模式，则为数据连接执行 SSL 握手
+        if (ssl.protected_mode) {
+            ssl.dataSSL = SSL_new(ssl.ctx);
+            if (!ssl.dataSSL) {
+                lastError = "Failed to create SSL object for data connection";
+                closesocket(dataSocket);
+                return INVALID_SOCKET;
+            }
+
+            SSL_set_fd(ssl.dataSSL, static_cast<int>(dataSocket));
+            SSL_set_session(ssl.dataSSL, SSL_get_session(ssl.ssl));
+
+            if (SSL_connect(ssl.dataSSL) != 1) {
+                lastError = "SSL handshake failed for data connection";
+                SSL_free(ssl.dataSSL);
+                ssl.dataSSL = nullptr;
+                closesocket(dataSocket);
+                return INVALID_SOCKET;
+            }
+        }
     }
 
     return dataSocket;

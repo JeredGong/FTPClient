@@ -1,4 +1,3 @@
-// Include Guards - ftpwebsocket.h
 #ifndef FTP_WEBSOCKET_H
 #define FTP_WEBSOCKET_H
 
@@ -17,11 +16,6 @@ namespace ftp {
 
 // Forward declarations
 class FTPClient;
-struct FTPResponse;
-enum class TransferMode;
-enum class TransferType;
-using ProgressCallback = std::function<void(int64_t current, int64_t total)>;
-
 using WebSocketServer = websocketpp::server<websocketpp::config::asio>;
 using WebSocketConnectionPtr = websocketpp::connection_hdl;
 using json = Json::Value;
@@ -77,6 +71,11 @@ private:
      * @brief 进度回调函数
      */
     void onProgress(WebSocketConnectionPtr hdl, int64_t current, int64_t total);
+
+    /**
+     * @brief 批量删除文件
+     */
+    bool batchDeleteFiles(const std::vector<std::string>& files, std::shared_ptr<FTPClient> client);
 
 private:
     WebSocketServer server;
